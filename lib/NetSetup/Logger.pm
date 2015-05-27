@@ -64,8 +64,7 @@ sub logger_init {
 	# может быть переопределена аргуметом log_dir_tree
 	my $log_dir_tree = "${program_name}/${date}/${hour}/${program_name}.${mtime}.log";
 	# резервный файл для логирования
-	# my $reserve_log_file = "/tmp/${program_name}.{mtime}.log";
-	my $reserve_log_file = 'C:\Users\Dashulka\Desktop\Autoadmin\log.txt';
+	my $reserve_log_file = "/tmp/${program_name}.{mtime}.log";
 	######################################################
 	# начало
 	######################################################
