@@ -12,5 +12,6 @@ WriteMakefile(
 	PREREQ_PM    => {
 		"Log::Log4perl"	=> 0,
 		"Net::Netmask"  => 0,
+		"Switch"	=> 0,
 	}
 );
