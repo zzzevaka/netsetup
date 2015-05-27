@@ -1,0 +1,109 @@
+#!/usr/bin/env perl
+#~ use lib ($ENV{'HOME'} . '/Dropbox/Autoadmin1/lib');
+
+use strict;
+use warnings;
+use Getopt::Std;
+use Data::Dumper;
+use NetSetup::Logger;
+
+##########################################################
+# глобальные переменные
+##########################################################
+#
+my $exit_code = 0;
+# режим выполнения команды
+my $mode;
+# уровень тишины
+my $silence = 0;
+# уровень дебага
+my $logger_level = 'INFO';
+my $net_setup_config_file = "/etc/netsetup.conf";
+my $net_setup;
+my @old_config_files;
+my @new_config_files;
+my $old_config;
+my $new_config;
+
+# опции командной строки
+my $Usage = "usage: $0 [-h] [-d 1-3] [update|show <template>]\n";
+
+my %argv;
+my $args = 'hd:';
+getopts($args, \%argv);
+
+
+# вывод help
+if (defined($argv{'h'}) || !@ARGV || $ARGV[0] !~ m/^(update|show)$/) {
+	print "$Usage";
+	exit 1;
+}
+# уровень дебага
+if (defined $argv{'d'} && $argv{'d'} <= 3) {
+	$logger_level = "DEBUG" . $argv{'d'};
+	$logger_level = 'DEBUG' if $logger_level eq 'DEBUG1';
+}
+
+# инициализация логгера
+my $logger = logger_init(STDERR => 1, LEVEL => $logger_level);
+
+##########################################################
+# НАЧАЛО
+##########################################################
+
+# подключение библиотки.
+require NetSetup;
+# проверка на чтение конфигурационного файла
+if (!-r $net_setup_config_file) {
+	$logger->fatal("can't open ${net_setup_config_file} for reading");
+	exit 1;
+}
+# инициализация NetSetup
+$net_setup = NetSetup->new($net_setup_config_file);
+# получение старого конфига
+@old_config_files = $net_setup->find_in_tmp();
+$old_config = $net_setup->get_config_obj(@old_config_files);
+# пуст ли конфиг? если да, вывести информацию об этом
+$logger->info("old config hasn't been found") if $old_config->is_empty();
+$mode = shift;
+# если режим show
+if ($mode eq 'show' && !$old_config->is_empty()) {
+	if (!@ARGV) {
+		print $old_config->str();
+	}
+	else {
+		foreach (@ARGV) {
+			print $old_config->str($_);
+		}
+	}
+	exit 0;
+}
+# если режим configure
+# найти новейший набор файлов
+@new_config_files = $net_setup->find_newest_set();
+# скомпилировать новый конфиг
+$new_config = $net_setup->get_config_obj(@new_config_files);
+# если новый конфиг не найден - что-то явно не так
+if (!$new_config || $new_config->is_empty()) {
+	$logger->fatal("new config hasn't been found");
+	exit 1;
+}
+# сравнить новый конфиг со старым
+$new_config->compare_with_old($old_config);
+print $new_config->get_diff() if !$silence;
+#~ print Dumper $new_config->{'DIFF'};
+my $ret = $new_config->apply_diff();
+if (!$ret) {
+	$logger->error("An error has been occurred at the difference applying");
+	$exit_code = 1;
+}
+$ret = $net_setup->copy_to_tmp(@new_config_files);
+if (!$ret) {
+	$logger->error("An error has been occurred at the files copying");
+	$exit_code = 1;
+}
+
+
+exit $exit_code;
+
+
