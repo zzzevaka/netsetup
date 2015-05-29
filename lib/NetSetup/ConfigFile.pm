@@ -22,19 +22,25 @@ package NetSetup::ConfigFile; {
 	# приниммает список конфигурационных файлов
 	sub new {
 		my $class = shift;
+		my %arg = @_;
+		# проверка обязательных аргументов
+		if (!defined($arg{'FILES'}) || ref($arg{'FILES'}) ne 'ARRAY') {
+			$logger->error("required parametr FILES (ref to ARRAY) is missing");
+			return 0;
+		}
 		my $self = {
 			# список файлов конфигурации
-			FILES => [@_],
+			FILES => $arg{'FILES'},
 			# компилятор
 			COMPILER => NetSetup::ConfigFile::Compiler->new(),
 			# сюда будут складываться интерфейсы
 			IMAGE => {},
 			# группы, в которые будут добавлены MGMT интерфейсы коммутаторов
-			SW_GROUP => ['CoNet'],
+			SW_GROUP => $arg{'SW_GROUP'} || ['CoNet'],
 			# количество vlan'ов
-			MAX_VLAN => 4026,
+			MAX_VLANS => $arg{'MAX_VLANS'} || 4026,
 			# максимальное колчиество портов в коммутаторе
-			MAX_PORTS => 48,
+			MAX_PORTS => $arg{'MAC_PORTS'} || 48,
 		};
 		bless $self, $class;
 		# компиляция файлов
@@ -93,7 +99,7 @@ package NetSetup::ConfigFile; {
 						$logger->error($data->{'DEVICE_NAME'} . ": max ports == " . $self->{'MAX_PORTS'});
 					}
 					# не достигнуто ли максимальное значение vlan?
-					if ($data->{'BASE_VLAN'} + $data->{'PORT_COUNT'} > $self->{'MAX_VLAN'}) {
+					if ($data->{'BASE_VLAN'} + $data->{'PORT_COUNT'} > $self->{'MAX_VLANS'}) {
 						$logger->error($data->{'DEVICE_NAME'} . ": too large value of vlan");
 						next;
 					}
@@ -131,7 +137,7 @@ package NetSetup::ConfigFile; {
 		while (my ($sw_name, $sw_data) = each %switch) {
 			# базовый vlan
 			$self->{'IMAGE'}{$sw_name . "#MGMT"} = NetSetup::NetIf::Vlan->new (
-				DESCRIBE	=> $sw_name . "#MGMT",
+				TITLE		=> $sw_name . "#MGMT",
 				NAME		=> 'vlan' . $sw_data->{'BASE_VLAN'},
 				PARENT		=> $sw_data->{'PARENT'},
 				VLAN_TAG	=> $sw_data->{'BASE_VLAN'},
@@ -155,7 +161,7 @@ package NetSetup::ConfigFile; {
 				# создать интерфейс
 				$logger->debug3("create netif for ${sw_name}#${port}");
 				$self->{'IMAGE'}{$sw_name . "#" . $port} = NetSetup::NetIf::Vlan->new(
-					DESCRIBE	=> $sw_name . "#" . $port,
+					TITLE	=> $sw_name . "#" . $port,
 					NAME		=> 'vlan' . ($sw_data->{'BASE_VLAN'} + $port),
 					PARENT		=> $sw_data->{'PARENT'},
 					VLAN_TAG	=> $sw_data->{'BASE_VLAN'} + $port,
@@ -245,25 +251,42 @@ package NetSetup::ConfigFile; {
 	# получить разницу конфигов
 	sub get_diff {
 		my $self = shift;
+		my @templates = @_ ? @_ : '.+';
+		my $template = join '|', @templates;
 		my $string = '';
 		if (!defined($self->{'DIFF'})) {
 			$logger->error("A comparison hasn't been performed");
 			return 0;
 		}
-		$string .= "deleted: ";
-		foreach (@{$self->{'DIFF'}{'DELETED'}}) {
-			$logger->debug3("$_");
-			$string .= $self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}->get_name() . " ";
+		# найти удаленные и добавленные интерфейсы
+		foreach my $type (qw/DELETED ADDED/) {
+			if (@{$self->{'DIFF'}{$type}}) {
+				$string .= "--------------------------------\n";
+				$string .= "${type}:\n";
+				$string .= "--------------------------------\n";
+				# для всех интерфейсов в списке
+				foreach (@{$self->{'DIFF'}{$type}}) {
+					# какую структуру смотрим?
+					my $obj = $type eq 'DELETED'
+						? $self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}
+						: $self->{'IMAGE'}{$_};
+					# сравнить с шаблоном
+					if ($obj->str() =~ m/$template/) {
+						$string .= $obj->str();
+						$string .= "--------\n";
+					}
+				}
+			}
 		}
-		$string .= "\nadded: ";
-		foreach (@{$self->{'DIFF'}{'ADDED'}}) {
-			$string .= $self->{'IMAGE'}{$_}->get_name() . " ";
-		}
-		$string .= "\nchanged:\n";
-		
-		foreach (@{$self->{'DIFF'}{'BOTH'}}) {
-			my $tmp = $self->{'IMAGE'}{$_}->get_diff();
-			$string .= $tmp if $tmp;
+		# общие интерфейсы
+		if (@{$self->{'DIFF'}{'BOTH'}}) {
+			$string .= "--------------------------------\n";
+			$string .= "CHANGED:\n";
+			$string .= "--------------------------------\n";
+			foreach (@{$self->{'DIFF'}{'BOTH'}}) {
+				my $tmp = $self->{'IMAGE'}{$_}->get_diff();
+				$string .= $tmp if $tmp =~ m/$template/;
+			}
 		}
 		$string .= "\n";
 		return $string;
@@ -316,13 +339,17 @@ package NetSetup::ConfigFile; {
 	# 	иначе вернет все интерфейсы
 	sub str {
 		my $self = shift;
-		my $template = shift || '.+';
-		my $str = "--------------------------------\n";
-		while (my ($k,$v) = each %{$self->{'IMAGE'}}) {
-			$logger->debug3($k);
-			if ($v->str() =~ m/$template/mi) {
-				$str .= $v->str();
+		my @templates = @_ ? @_ : '.+';
+		my $template = join '|', @templates;
+		$logger->debug3("template ${template}");
+		my $str = '';
+		# каждый интерфейс в отсортированном виде
+		foreach (sort keys %{$self->{'IMAGE'}}) {
+			$logger->debug3("netif $_");
+
+			if ($self->{'IMAGE'}{$_}->str() =~ m/$template/mi) {
 				$str .= "--------------------------------\n";
+				$str .= $self->{'IMAGE'}{$_}->str();
 			}
 		}
 		return $str;

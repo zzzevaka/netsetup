@@ -28,14 +28,15 @@ package NetSetup::NetIf::Base; {
 		my $class = shift;
 		my %arg = @_;
 		#~ $logger->debug("called ${class} construcor");
-		# для каждого объекта класса обязательно должно быть определоно имя
+		# для каждого объекта класса обязательно должно быть определено имя
 		if (!defined($arg{'NAME'}) || !$arg{'NAME'}) {
-			$logger->error("An incorrect argument 'NAME'");
+			$logger->error("An incorrect argument '$_'");
 			return 0;
 		}
 		# инициализация объекта
 		my $self = {
 			RES_SET		=> [qw/DESCRIBE CONNECTED LAN GROUP/],
+			TITLE		=> $arg{'TITLE'} || $arg{'NAME'},
 			NAME		=> $arg{'NAME'},
 			DESCRIBE	=> [],
 			CONNECTED	=> [],
@@ -155,11 +156,15 @@ package NetSetup::NetIf::Base; {
 	sub str {
 		my $self = shift;
 		my $string = '';
-		$string .= "NETIF " . $self->{'NAME'} . ":\n";
+		$string .= "NETIF " . $self->{'TITLE'} . ' (' .  $self->{'NAME'} . "):\n";
 		foreach my $res (@{$self->{'RES_SET'}}) {
 			my @res_array = @{$self->{$res}};
 			next if !@res_array;
 			$string .= "$res: @res_array\n";
+		}
+		if ($self->get_diff()) {
+			$string .= "--------------------------------\n";
+			$string .= $self->get_diff();
 		}
 		return $string;
 	}
@@ -191,7 +196,7 @@ package NetSetup::NetIf::Base; {
 			$logger->error("An incorrect argument: 'OLD': ${old_iface}");
 			return 0;
 		}
-		$logger->debug2("comparison: $self->{DESCRIBE} ($self->{NAME})");
+		$logger->debug2("comparison: $self->{TITLE}");
 		# сравнивание всех ресурсов
 		foreach my $res_name (keys %$self) {
 			# сравниваем скаляры
@@ -212,16 +217,13 @@ package NetSetup::NetIf::Base; {
 	
 
 	# получить изменения в читаемом виде
-	# возможно только, если ранее было произведено сравнение
-	# если ранее не было произведено сравнение, то выйдет с ошибкой
 	sub get_diff {
 		my $self = shift;
 		my @added = ();
 		my @deleted = ();
 		my $string = '';
 		if (!defined($self->{'DIFF'})) {
-			$logger->error("A comparison hasn't been performed " . $self->{'NAME'});
-			return 0;
+			return $string
 		}
 		while (my ($k,$v) = each %{$self->{'DIFF'}}) {
 			next if $k eq 'OLD_OBJ';
@@ -230,8 +232,8 @@ package NetSetup::NetIf::Base; {
 			if (!@added && !@deleted) {
 				next;
 			}
-			$string .= "+ " . " ${k} @added" . "\n" if @added;
-			$string .= "- "  . " ${k} @deleted" . "\n" if @deleted;
+			$string .= "+ " . $self->{'TITLE'} . " ${k} @added" . "\n" if @added;
+			$string .= "- " . $self->{'TITLE'} . " ${k} @deleted" . "\n" if @deleted;
 		}
 		return $string;
 	}
@@ -252,7 +254,7 @@ package NetSetup::NetIf::Base; {
 		# производим удаление ресурсов
 		if ($action =~ m/ALL|DEL/) {
 			# удалить интерфейс полностью, если:
-			# - изменился родительский интерйейс
+			# - изменился родительский интерфейс
 			# - изменилось имя интерфейса
 			if ($self->{'DIFF'}{'PARENT'}{'changed'} || $self->{'DIFF'}{'NAME'}{'changed'}) {
 				$logger->debug("destroy " . $self->{'DIFF'}{'OLD_OBJ'}->get_name());
@@ -271,7 +273,7 @@ package NetSetup::NetIf::Base; {
 		# если нужно добавить, идем дальше
 		# если интерфейс не поднят, создаем его полностью и выходим
 		if (!$self->is_up()) {
-			$logger->info("create " . $self->{'NAME'});
+			$logger->debug("create " . $self->{'NAME'});
 			if (!$self->up_iface()) {
 				$logger->error("can't up " . $self->get_name());
 				return 0;

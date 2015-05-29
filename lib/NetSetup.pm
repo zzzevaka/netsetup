@@ -62,7 +62,7 @@ package NetSetup; {
 			# имя файла, в который сохраняются хэш суммы файлов
 			MD5_F		=> $config{'MD5_F'} || 'checksum.md5',
 			# максимальное количество vlan'ов в конфиге
-			VLAN_COUNT	=> $config{'VLAN_COUNT'} || 4096,
+			MAX_VLANS	=> $config{'MAX_VLANS'} || 4026,
 			# максимальное количество портов в одном коммутаторе
 			MAX_PORTS	=> $config{'MAX_PORTS'} || 30,
 			# группы, в которые добавляются MGMT vlan'ы
@@ -285,7 +285,11 @@ package NetSetup; {
 	# получить объекта конфига
 	sub get_config_obj {
 		my $self = shift;
-		return NetSetup::ConfigFile->new(@_);
+		return NetSetup::ConfigFile->new(
+			FILES		=> [@_],
+			MAX_VLANS	=> $self->{'MAX_VLANS'},
+			MAX_PORS	=> $self->{'MAX_PORTS'},
+		);
 	}
 	
 	# Получение md5 хэш-суммы для файла, переданного аргументов

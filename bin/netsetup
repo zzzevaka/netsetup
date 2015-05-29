@@ -26,10 +26,20 @@ my $old_config;
 my $new_config;
 
 # опции командной строки
-my $Usage = "usage: $0 [-h] [-d 1-3] [update|show <template>]\n";
+my $Usage =	"usage: $0 [-h] [-d 1-3] [-v] [-с] [update [all|template] | show [old|new|diff|] template]]\n" .
+				"\n" .
+				"decription:\n" .
+				"\tnetwork configurator\n" .
+				"\n" .
+				"options:\n" .
+				"\t-h\tthis page\n" .
+				"\t-d\tdebug level [1-3]\n" .
+				"\t-v\twithout verfication\n" .
+				"\t-c\tconfig file for this program\n" .
+				"";
 
 my %argv;
-my $args = 'hd:';
+my $args = 'vhd:';
 getopts($args, \%argv);
 
 
@@ -43,14 +53,18 @@ if (defined $argv{'d'} && $argv{'d'} <= 3) {
 	$logger_level = "DEBUG" . $argv{'d'};
 	$logger_level = 'DEBUG' if $logger_level eq 'DEBUG1';
 }
+# определение файла с конфигурацией программы
+if(defined $argv{'c'} && $argv{'c'}) {
+	$net_setup_config_file = $argv{'c'};
+}
+
 
 # инициализация логгера
 my $logger = logger_init(STDERR => 1, LEVEL => $logger_level);
 
-##########################################################
+########################################################################
 # НАЧАЛО
-##########################################################
-
+########################################################################
 # подключение библиотки.
 require NetSetup;
 # проверка на чтение конфигурационного файла
@@ -60,49 +74,77 @@ if (!-r $net_setup_config_file) {
 }
 # инициализация NetSetup
 $net_setup = NetSetup->new($net_setup_config_file);
-# получение старого конфига
+########################################################################
+# получить старый конфиг
+########################################################################
 @old_config_files = $net_setup->find_in_tmp();
 $old_config = $net_setup->get_config_obj(@old_config_files);
-# пуст ли конфиг? если да, вывести информацию об этом
-$logger->info("old config hasn't been found") if $old_config->is_empty();
-$mode = shift;
-# если режим show
-if ($mode eq 'show' && !$old_config->is_empty()) {
-	if (!@ARGV) {
-		print $old_config->str();
-	}
-	else {
-		foreach (@ARGV) {
-			print $old_config->str($_);
-		}
-	}
-	exit 0;
-}
-# если режим configure
-# найти новейший набор файлов
+# пуст ли старый конфиг? если да, вывести информацию об этом
+########################################################################
+# получить новый конфиг
+########################################################################
 @new_config_files = $net_setup->find_newest_set();
-# скомпилировать новый конфиг
 $new_config = $net_setup->get_config_obj(@new_config_files);
-# если новый конфиг не найден - что-то явно не так
+# нового конфига не может не быть
 if (!$new_config || $new_config->is_empty()) {
 	$logger->fatal("new config hasn't been found");
 	exit 1;
 }
-# сравнить новый конфиг со старым
+########################################################################
+# сравнить конфиги
+########################################################################
 $new_config->compare_with_old($old_config);
-print $new_config->get_diff() if !$silence;
-#~ print Dumper $new_config->{'DIFF'};
-my $ret = $new_config->apply_diff();
-if (!$ret) {
-	$logger->error("An error has been occurred at the difference applying");
-	$exit_code = 1;
+########################################################################
+# режим работы
+########################################################################
+$mode = shift;
+########################################################################
+# SHOW
+########################################################################
+# режим show без аргументов показывает текущие настройки (старый конфиг),
+# а так же разницу с новым конфигом, если она есть
+# 
+# если передан аргумент diff - покажет разницу старого и нового конфигов
+# без вывода неизменных частей
+#
+# если передан шаблон, то произведен поиск по шаблону и выведет те
+# интерфейсы, в которых этот шаблон встречается
+# 
+if ($mode eq 'show') {
+	# аргументов нет. значит нужно вывести старый конфиг полностью + разницу
+	if (!@ARGV || $ARGV[0] eq 'old') {
+		$logger->debug("show old");
+		shift;
+		print $old_config->str(@ARGV);
+		print "--------------------------------\n";
+		print "DIFFERENCE:\n";
+		print "--------------------------------\n";
+		print $new_config->get_diff(@ARGV);
+	}
+	# новый конфиг
+	elsif ($ARGV[0] eq 'new') {
+		$logger->debug("show new");
+		shift;
+		print $new_config->str(@ARGV);
+	}
+	# разница
+	elsif ($ARGV[0] eq 'diff') {
+		$logger->debug("show diff");
+		shift;
+		print $new_config->get_diff(@ARGV);
+	}
+	# если не совпадает, значит шаблон
+	else {
+		$logger->debug("show by template");
+		print $old_config->str(@ARGV);
+	}
 }
-$ret = $net_setup->copy_to_tmp(@new_config_files);
+
+my $ret = $net_setup->copy_to_tmp(@new_config_files);
 if (!$ret) {
 	$logger->error("An error has been occurred at the files copying");
 	$exit_code = 1;
 }
-
 
 exit $exit_code;
 
