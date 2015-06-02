@@ -38,7 +38,7 @@ package NetSetup::ConfigFile::Compiler; {
 				GROUP		=> '[\w,]+',
 				LAN		=> '[\d\.\/\-,]+',
 				AP_NAME		=> '[\w\-]+',
-				PORT		=> '\d{1,2}',
+				PORT		=> '[0-9a-z]{1,5}',
 		};
 		$self->{'SPEC'} = '\?\(\)';
 		# разделить данных в конфиге. По-умолачнию пробел

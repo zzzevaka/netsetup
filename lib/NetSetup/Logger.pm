@@ -47,7 +47,7 @@ sub logger_init {
 	my ($package) = caller(0);
 	#~ print "log_init package: $package\n";
 	# имя программы
-	my $program_name = $0;
+	my $program_name = basename($0);
 	######################################################
 	# время
 	######################################################
@@ -89,9 +89,13 @@ sub logger_init {
 		warn("WARNING: Logging to ${reserve_log_file}");
 		$log_file = $reserve_log_file;
 	}
+	# формат вывода. В дебаг режиме будет выводить время, имя функции и сообщение
+	# в обычном режиме только сообщение
+	my $screen_format = '%m%n';
+	if ($level =~ /DEBUG/) {
+		$screen_format = '%p %M - %m%n';
+	}
 	# конфигурация Log::Log4perl
-	# %p %M - %m%n
-	# 
 	my $log_conf = "
 		log4perl.rootlogger                 = $level,$destination
 
@@ -104,7 +108,7 @@ sub logger_init {
 		log4perl.appender.STDERR          = Log::Log4perl::Appender::Screen
 		log4perl.appender.STDERR.stderr   = 1
 		log4perl.appender.STDERR.layout   = PatternLayout
-		log4perl.appender.STDERR.layout.ConversionPattern = %p %M - %m%n
+		log4perl.appender.STDERR.layout.ConversionPattern = $screen_format
 	";
 	# инициализация Log4perl
 	if(!Log::Log4perl->init(\$log_conf)) {

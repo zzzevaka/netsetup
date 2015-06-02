@@ -153,8 +153,11 @@ package NetSetup::NetIf::Base; {
 	}
 	
 	# получить описание интерфейса в читаемом виде
+	# ВХОД:
+	# 	строка, которую нужно вставить между основным описанием и diff
 	sub str {
 		my $self = shift;
+		my $added_str = shift;
 		my $string = '';
 		$string .= "NETIF " . $self->{'TITLE'} . ' (' .  $self->{'NAME'} . "):\n";
 		foreach my $res (@{$self->{'RES_SET'}}) {
@@ -162,8 +165,11 @@ package NetSetup::NetIf::Base; {
 			next if !@res_array;
 			$string .= "$res: @res_array\n";
 		}
+		if (defined($added_str) && $added_str) {
+			$string .= $added_str;
+		}
 		if ($self->get_diff()) {
-			$string .= "--------------------------------\n";
+			$string .= "--DIFF--\n";
 			$string .= $self->get_diff();
 		}
 		return $string;
@@ -173,6 +179,21 @@ package NetSetup::NetIf::Base; {
 	sub get_name {
 		my $self = shift;
 		return $self->{'NAME'};
+	}
+	
+	# пуст ли интерфейс?
+	# пустым считается интерфейс, если в нем нет никаких ресурсов
+	sub is_empty {
+		my $self = shift;
+		# проверить все ресурсы
+		foreach (@{$self->{'RES_SET'}}) {
+			# если что-то есть, вернуть 0 - не пуст
+			if (@{$self->{$_}}) {
+				return 0;
+			}
+		}
+		# вернуть 1 - пуст
+		return 1;
 	}
 	
 	# сравнение со старым описанием
@@ -227,6 +248,7 @@ package NetSetup::NetIf::Base; {
 		}
 		while (my ($k,$v) = each %{$self->{'DIFF'}}) {
 			next if $k eq 'OLD_OBJ';
+			$logger->debug3("resource ${k}");
 			@added = @{$v->{'added'}};
 			@deleted = @{$v->{'deleted'}};
 			if (!@added && !@deleted) {
@@ -253,20 +275,9 @@ package NetSetup::NetIf::Base; {
 		}
 		# производим удаление ресурсов
 		if ($action =~ m/ALL|DEL/) {
-			# удалить интерфейс полностью, если:
-			# - изменился родительский интерфейс
-			# - изменилось имя интерфейса
-			if ($self->{'DIFF'}{'PARENT'}{'changed'} || $self->{'DIFF'}{'NAME'}{'changed'}) {
-				$logger->debug("destroy " . $self->{'DIFF'}{'OLD_OBJ'}->get_name());
-				if (!$self->{'DIFF'}{'OLD_OBJ'}->down_iface()) {
-					$logger->error("comething wrong at the deleting " . $self->{'DIFF'}{'OLD_OBJ'}->get_name());
-				}
-			}
-			else {
-				$self->down_connected($self->{'DIFF'}{'CONNECTED'}{'deleted'});
-				$self->down_lan($self->{'DIFF'}{'LAN'}{'deleted'});
-				$self->down_group($self->{'DIFF'}{'GROUP'}{'deleted'});
-			}
+			$self->down_connected($self->{'DIFF'}{'CONNECTED'}{'deleted'});
+			$self->down_lan($self->{'DIFF'}{'LAN'}{'deleted'});
+			$self->down_group($self->{'DIFF'}{'GROUP'}{'deleted'});
 			# если требуется только удалить, выходим
 			return 1 if $action =~ /DEL/;
 		}

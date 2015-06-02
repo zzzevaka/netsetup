@@ -12,18 +12,24 @@ use NetSetup::Logger;
 ##########################################################
 #
 my $exit_code = 0;
+my $ret;
 # режим выполнения команды
 my $mode;
 # уровень тишины
 my $silence = 0;
-# уровень дебага
+# уровень логгера Log::Log4Perl
 my $logger_level = 'INFO';
+# уонфигурационный файл программы. может быть перегружен (см. usage)
 my $net_setup_config_file = "/etc/netsetup.conf";
+# объект класса NetSetup
 my $net_setup;
+# массивы, для хранения путей к конфигуарционным файлам
 my @old_config_files;
 my @new_config_files;
+# объекты классов NetSetup::ConfigFile
 my $old_config;
 my $new_config;
+
 
 # опции командной строки
 my $Usage =	"usage: $0 [-h] [-d 1-3] [-v] [-с] [update [all|template] | show [old|new|diff|] template]]\n" .
@@ -36,12 +42,12 @@ my $Usage =	"usage: $0 [-h] [-d 1-3] [-v] [-с] [update [all|template] | show [o
 				"\t-d\tdebug level [1-3]\n" .
 				"\t-v\twithout verfication\n" .
 				"\t-c\tconfig file for this program\n" .
+				"\t-s\tsilence mode\n" .
 				"";
 
 my %argv;
 my $args = 'vhd:';
 getopts($args, \%argv);
-
 
 # вывод help
 if (defined($argv{'h'}) || !@ARGV || $ARGV[0] !~ m/^(update|show)$/) {
@@ -57,7 +63,10 @@ if (defined $argv{'d'} && $argv{'d'} <= 3) {
 if(defined $argv{'c'} && $argv{'c'}) {
 	$net_setup_config_file = $argv{'c'};
 }
-
+# silence
+if (defined $argv{'s'}) {
+	$silence = 1;
+}
 
 # инициализация логгера
 my $logger = logger_init(STDERR => 1, LEVEL => $logger_level);
@@ -86,9 +95,12 @@ $old_config = $net_setup->get_config_obj(@old_config_files);
 @new_config_files = $net_setup->find_newest_set();
 $new_config = $net_setup->get_config_obj(@new_config_files);
 # нового конфига не может не быть
-if (!$new_config || $new_config->is_empty()) {
+if (!$new_config) {
 	$logger->fatal("new config hasn't been found");
 	exit 1;
+}
+if ($new_config->is_empty()) {
+	$logger->warn("new config is empty");
 }
 ########################################################################
 # сравнить конфиги
@@ -115,35 +127,56 @@ if ($mode eq 'show') {
 	if (!@ARGV || $ARGV[0] eq 'old') {
 		$logger->debug("show old");
 		shift;
-		print $old_config->str(@ARGV);
-		print "--------------------------------\n";
-		print "DIFFERENCE:\n";
-		print "--------------------------------\n";
-		print $new_config->get_diff(@ARGV);
+		$logger->info($old_config->str(@ARGV));
+		$logger->info($new_config->get_diff(@ARGV));
 	}
 	# новый конфиг
 	elsif ($ARGV[0] eq 'new') {
 		$logger->debug("show new");
 		shift;
-		print $new_config->str(@ARGV);
+		$logger->info($new_config->str(@ARGV));
 	}
 	# разница
 	elsif ($ARGV[0] eq 'diff') {
 		$logger->debug("show diff");
 		shift;
-		print $new_config->get_diff(@ARGV);
+		$logger->info($new_config->get_diff(@ARGV));
 	}
 	# если не совпадает, значит шаблон
 	else {
 		$logger->debug("show by template");
-		print $old_config->str(@ARGV);
+		$logger->info($old_config->str(@ARGV));
 	}
 }
-
-my $ret = $net_setup->copy_to_tmp(@new_config_files);
-if (!$ret) {
-	$logger->error("An error has been occurred at the files copying");
-	$exit_code = 1;
+elsif ($mode eq 'update') {
+	$logger->debug('update');
+	if (!$new_config->get_diff()) {
+		$logger->info("nothing to do");
+		exit 0;
+	}
+	$logger->info($new_config->get_diff() . "--------------------------------");
+	# запрос подтверждения от пользователя
+	# не производится, если включен, если включен silence
+	if (!$silence) {
+		print "are you shure? (y/n): ";
+		if (<STDIN> eq "y\n") {
+			$logger->debug("are you shure? (y/n): y");
+		}
+		else {
+			$logger->debug("are you shure? (y/n): n");
+			exit 0;
+		}
+	}
+	$ret = $new_config->apply_diff();
+	if (!$ret) {
+		$logger->fatal("something wrong at the configuring");
+		$exit_code = 1;
+	}
+	$ret = $net_setup->copy_to_tmp(@new_config_files);
+	if (!$ret) {
+		logger->fatal("something wrong at the file copying");
+		$exit_code = 1;
+	}
 }
 
 exit $exit_code;

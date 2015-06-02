@@ -10,6 +10,7 @@ package NetSetup::ConfigFile; {
 	use Switch;
 	use NetSetup::Array_diff;
 	use NetSetup::Logger;
+	use NetSetup::NetIf::Physical;
 	use NetSetup::NetIf::Vlan;
 	use NetSetup::ConfigFile::Compiler;
 	use overload {
@@ -171,10 +172,11 @@ package NetSetup::ConfigFile; {
 		# добавить к интерфейсам ресурсы
 		# пройтись по данным AP_LINK и сопоставить с интерфесом маршрутизатора
 		while (my ($ap_name, $device_port) = each %ap_link) {
-			$logger->debug3("compile resiurces for ${ap_name}");
+			$logger->debug3("compile resources for ${ap_name}");
 			#если device - ROUTER, создать физический интерфейс
 			if ($device_port =~ m/^ROUTER#(\w*)/i) {
-				$self->{'IMAGE'}{$1} = NetSetup::NetIf::Physical->new(
+				$self->{'IMAGE'}{'ROUTER#'.$1} = NetSetup::NetIf::Physical->new(
+					TITLE		=> 'ROTUER#'.$1,
 					DESCRIBE	=> $ap_name,
 					NAME		=> $1,
 				);
@@ -251,9 +253,13 @@ package NetSetup::ConfigFile; {
 	# получить разницу конфигов
 	sub get_diff {
 		my $self = shift;
+		# получение швблонов. если не переданы, значит любая строка совпадет
 		my @templates = @_ ? @_ : '.+';
+		# объекдинить шаблоны для подстановки в регулярное выражение
 		my $template = join '|', @templates;
+		# строка для возврата
 		my $string = '';
+		# если сравнения не проихводилось, вернуть 0;
 		if (!defined($self->{'DIFF'})) {
 			$logger->error("A comparison hasn't been performed");
 			return 0;
@@ -262,7 +268,7 @@ package NetSetup::ConfigFile; {
 		foreach my $type (qw/DELETED ADDED/) {
 			if (@{$self->{'DIFF'}{$type}}) {
 				$string .= "--------------------------------\n";
-				$string .= "${type}:\n";
+				$string .= "${type} INTERFACES:\n";
 				$string .= "--------------------------------\n";
 				# для всех интерфейсов в списке
 				foreach (@{$self->{'DIFF'}{$type}}) {
@@ -272,23 +278,29 @@ package NetSetup::ConfigFile; {
 						: $self->{'IMAGE'}{$_};
 					# сравнить с шаблоном
 					if ($obj->str() =~ m/$template/) {
+						# вывести полоностью интерфейс
 						$string .= $obj->str();
-						$string .= "--------\n";
+						$string .= "-----\n";
 					}
 				}
 			}
 		}
 		# общие интерфейсы
 		if (@{$self->{'DIFF'}{'BOTH'}}) {
-			$string .= "--------------------------------\n";
-			$string .= "CHANGED:\n";
-			$string .= "--------------------------------\n";
+			my $both_changed = 0;
+			my $both_string = '';
+			my $title .= "--------------------------------\n";
+			$title .= "CHANGED INTERFACES:\n";
+			$title .= "--------------------------------\n";
 			foreach (@{$self->{'DIFF'}{'BOTH'}}) {
 				my $tmp = $self->{'IMAGE'}{$_}->get_diff();
-				$string .= $tmp if $tmp =~ m/$template/;
+				if ($tmp =~ m/$template/) {
+					$both_string .= $tmp;
+					$both_changed = 1;
+				}
 			}
+			$string .= $both_changed ? $title . $both_string : '';
 		}
-		$string .= "\n";
 		return $string;
 	}
 	
@@ -305,8 +317,8 @@ package NetSetup::ConfigFile; {
 			$logger->debug("delete iface $_");
 			# в текущем конфиге такого интерфейса уже нет
 			# значит его нужно искать в старом
-			if($self->{'DIFF'}{'OLD_OBJ'}{$_}->down_iface()) {
-				$logger->error("something wrong at the deleting " . $self->{'DIFF'}{'OLD_OBJ'}{$_}->get_name());
+			if(!$self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}->down_iface()) {
+				$logger->error("something wrong at the deleting " . $self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}->get_name());
 				$return_code = 0;
 			}
 		}
