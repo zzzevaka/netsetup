@@ -8,7 +8,7 @@ package NetSetup::NetIf::Physical; {
 	use warnings;
 
 	# наследование базового класса и интерфейса взаимодействия с системой
-	use base qw/NetSetup::NetIf::Base
+	use base qw/NetSetup::NetIf::BaseIface
 				NetSetup::NetIf::CMD::FreeBSD::ForPhysical/;
 }
 

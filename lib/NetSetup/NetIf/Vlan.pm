@@ -8,16 +8,18 @@ package NetSetup::NetIf::Vlan; {
 	use Data::Dumper;
 	use NetSetup::Logger;
 
-	my $logger = get_logger_obj() || logger_init();
+	my $logger;
 
 	# наследование базового класса и интерфейса взаимодействия с системой
-	use base qw/NetSetup::NetIf::Base
+	use base qw/NetSetup::NetIf::BaseIface
 				NetSetup::NetIf::CMD::FreeBSD::ForVlan/;
 
 	# перегрузка конструктора базового класса
 	sub new {
 		my $class = shift;
 		my %arg = @_;
+		# инициализация логгера
+		$logger = logger_init();
 		# для vlana обязательно наличие perent-интерфейса и тэга vlan'a
 		if (!defined($arg{'VLAN_TAG'}) || $arg{'VLAN_TAG'} !~ m/\d+/) {
 			$logger->error("incorrect vlan tag value");

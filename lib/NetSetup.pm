@@ -13,8 +13,11 @@ package NetSetup; {
 	use File::Basename;
 	use NetSetup::Logger;
 	use NetSetup::ConfigFile;
+	use NetSetup::Array_diff;
+	use NetSetup::CMD::Vtysh;
 	
-	my $logger = get_logger_obj() || logger_init();
+	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+	my $logger;
 	
 	# конструктор класса
 	# Вход:
@@ -28,6 +31,8 @@ package NetSetup; {
 		my $class = shift;
 		# источник конфига. может быть хэш или адрес файла
 		my $config_source = shift;
+		# инициализация логгера
+		$logger = logger_init();
 		# переменная, куда будет записано содержимое конфиг файла
 		my %config = ();
 		# если источник конфига был объявлен
@@ -54,9 +59,9 @@ package NetSetup; {
 		# описание переменных для работы программы
 		my $self = {
 			# где ищем конфиг
-			CONFIG_DIR	=> $config{'CONFIG_DIR'} || '/etc/NetSetup',
+			CONFIG_DIR	=> $config{'CONFIG_DIR'} || '/etc/netsetup',
 			# куда сохраняем последний примененный конфиг
-			TMP_DIR		=> $config{'TMP_DIR'} || '/tmp/NetSetup',
+			TMP_DIR		=> $config{'TMP_DIR'} || '/tmp/netsetup',
 			# файлы, составляющие сэт
 			FILES		=> $config{'FILES'} || 'SWITCHES.conf,AP_LINK.conf,RESOURCES.conf',
 			# имя файла, в который сохраняются хэш суммы файлов
@@ -64,7 +69,7 @@ package NetSetup; {
 			# максимальное количество vlan'ов в конфиге
 			MAX_VLANS	=> $config{'MAX_VLANS'} || 4026,
 			# максимальное количество портов в одном коммутаторе
-			MAX_PORTS	=> $config{'MAX_PORTS'} || 30,
+			MAX_PORTS	=> $config{'MAX_PORTS'} || 48,
 			# группы, в которые добавляются MGMT vlan'ы
 			SW_GROUP	=> $config{'SW_GROUP'} || 'CoNet',
 		};
@@ -322,6 +327,24 @@ package NetSetup; {
 		close $FH_MD5;
 		return $md5 || 0;
 	}
+	
+	sub find_odd_lan {
+		my $self = shift;
+		my $conf_obj = shift;
+		if (!defined($conf_obj) || ref($conf_obj) ne "NetSetup::ConfigFile") {
+			$logger->error("incorrect argument");
+			return 0;
+		}
+		my @lan_in_config = $conf_obj->get_all_resource_by_type('LAN');
+
+		my @lan_in_vtysh = get_all_lan();
+		if (defined ($lan_in_config[0]) && !$lan_in_config[0]) {
+			return 0;
+		}
+		my $array_diff = array_diff(\@lan_in_config, \@lan_in_vtysh);
+		return @{$array_diff->{'added'}};
+	}
+	
 }
 
 1;

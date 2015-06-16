@@ -44,7 +44,7 @@ sub logger_init {
 		return $logger_obj;
 	}
 	# ициниатор логгера
-	my ($package) = caller(0);
+	#~ my ($package) = caller(0);
 	#~ print "log_init package: $package\n";
 	# имя программы
 	my $program_name = basename($0);

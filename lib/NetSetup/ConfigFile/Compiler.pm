@@ -8,7 +8,7 @@ package NetSetup::ConfigFile::Compiler; {
 	use Data::Dumper;
 	use NetSetup::Logger;
 
-	my $logger = get_logger_obj() || logger_init();
+	my $logger;
 
 	# конструктор класса
 	# ВХОД:
@@ -21,11 +21,13 @@ package NetSetup::ConfigFile::Compiler; {
 		my $class = shift;
 		my $self = {};
 		my %arg = @_;
+		# инициализация логгера
+		$logger = logger_init();
 		# шаблоны строк по-умолчанию
 		$self->{'LINE_TEMPLATES'} = {
 			SWITCH		=> "SW dev DEVICE_NAME parent PARENT base BASE_VLAN inet CONNECTED count PORT_COUNT( ignore IGNORE)?",
-			AP_LINK		=> "AP_LINK ap AP_NAME dev DEVICE_NAME port PORT",
-			RESOURCES	=> "RES ap AP_NAME( group GROUP)?( inet CONNECTED)?( lan LAN)?",
+			AP_LINK		=> "AP_LINK AP_NAME dev DEVICE_NAME port PORT",
+			RESOURCES	=> "RES AP_NAME( group GROUP)?( inet CONNECTED)?( lan LAN)?",
 		};
 		# шаблоны значений по-умолчанию
 		$self->{'VALUE_TEMPLATES'} = {

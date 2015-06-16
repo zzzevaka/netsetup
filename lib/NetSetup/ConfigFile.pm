@@ -17,13 +17,14 @@ package NetSetup::ConfigFile; {
 		'""' => \&str,
 	};
 
-	my $logger = get_logger_obj() || logger_init();
+	my $logger;
 
 	# конструктор класса
 	# приниммает список конфигурационных файлов
 	sub new {
 		my $class = shift;
 		my %arg = @_;
+		$logger = logger_init();
 		# проверка обязательных аргументов
 		if (!defined($arg{'FILES'}) || ref($arg{'FILES'}) ne 'ARRAY') {
 			$logger->error("required parametr FILES (ref to ARRAY) is missing");
@@ -372,6 +373,30 @@ package NetSetup::ConfigFile; {
 		my $self = shift;
 		return %{$self->{'IMAGE'}} ? 0 : 1;
 	}
+	
+	# получить список всех ресурсов по типу
+	sub get_all_resource_by_type {
+		my $self = shift;
+		my $res = shift;
+		return 0 if !defined($res);
+		my @list = ();
+		while (my ($if_name,$obj) = each %{$self->{'IMAGE'}}) {
+			$logger->debug3($if_name);
+			if (defined($obj->{$res})) {
+				if (!ref $obj->{$res}) {
+					push @list, $obj->{$res};
+				}
+				elsif (ref $obj->{$res} eq 'ARRAY') {
+					push @list, @{$obj->{$res}};
+				}
+				else {
+					$logger->error('An unknown type of resource');
+				}
+			}
+		}
+		return @list;
+	}
+	
 }
 
 1;

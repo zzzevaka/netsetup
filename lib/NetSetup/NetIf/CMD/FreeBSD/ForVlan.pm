@@ -5,11 +5,11 @@ package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 	use strict;
 	use warnings;
 	use NetSetup::Logger;
-	use NetSetup::NetIf::CMD::Base;
-	my $logger = get_logger_obj() || logger_init();
-
+	use NetSetup::CMD::CMD_Base;
 	#наследование класса
 	use base qw/NetSetup::NetIf::CMD::FreeBSD::ForPhysical/;
+	
+	my $logger;
 	
 	# внешние команды
 	my $IFCONFIG = '/sbin/ifconfig';
@@ -26,6 +26,8 @@ package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 	sub new {
 		my $class = shift;
 		my %arg = @_;
+		# наследование класса
+		$logger = logger_init();
 		$logger->debug("called ${class} construcor");
 		if (!defined($arg{'VLAN_TAG'}) || !defined($arg{'PARENT'}) ||
 			!$arg{'VLAN_TAG'} || !$arg{'PARENT'}) {
@@ -47,7 +49,7 @@ package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 	# Вход:
 	# Выход:
 	#	1: норма
-	#	0: ошибка		
+	#	0: ошибка
 	sub up_iface {
 		my $self = shift;
 		$logger->debug2("up " . $self->get_name());

@@ -9,9 +9,9 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	use Data::Dumper;
 	use NetSetup::Valid_ip;
 	use NetSetup::Logger;
-	use NetSetup::NetIf::CMD::Base;
+	use NetSetup::CMD::CMD_Base;
 
-	my $logger = get_logger_obj() || logger_init();
+	my $logger;
 
 	# внешние команды
 	my $IFCONFIG = '/sbin/ifconfig';
@@ -29,6 +29,7 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	sub new {
 		my $class = shift;
 		my %arg = @_;
+		$logger = logger_init();
 		$logger->debug("called ${class} construcor");
 		if (!defined($arg{'NAME'})) {
 			$logger->error("An incorrect argument");
