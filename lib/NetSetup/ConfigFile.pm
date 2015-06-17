@@ -17,14 +17,14 @@ package NetSetup::ConfigFile; {
 		'""' => \&str,
 	};
 
-	my $logger;
+	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+	my $logger = get_logger_obj() or die "logger isn't initialized";
 
 	# конструктор класса
 	# приниммает список конфигурационных файлов
 	sub new {
 		my $class = shift;
 		my %arg = @_;
-		$logger = logger_init();
 		# проверка обязательных аргументов
 		if (!defined($arg{'FILES'}) || ref($arg{'FILES'}) ne 'ARRAY') {
 			$logger->error("required parametr FILES (ref to ARRAY) is missing");
@@ -318,8 +318,9 @@ package NetSetup::ConfigFile; {
 			$logger->debug("delete iface $_");
 			# в текущем конфиге такого интерфейса уже нет
 			# значит его нужно искать в старом
-			if(!$self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}->down_iface()) {
-				$logger->error("something wrong at the deleting " . $self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}->get_name());
+			my @cmd_output = $self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}->down_iface();
+			if(!shift @cmd_output) {
+				$logger->error("Error at the deleting " . $self->{'DIFF'}{'OLD_OBJ'}{'IMAGE'}{$_}->get_name() . ":\n@{cmd_output}");
 				$return_code = 0;
 			}
 		}
@@ -327,7 +328,6 @@ package NetSetup::ConfigFile; {
 		foreach (@{$self->{'DIFF'}{'ADDED'}}) {
 			$logger->debug("up iface $_");
 			if (!$self->{'IMAGE'}{$_}->up_iface()) {
-				$logger->error("something wrong at the configuring " . $self->{'IMAGE'}{$_}->get_name());
 				$return_code = 0;
 			}
 		}

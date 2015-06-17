@@ -1,19 +1,40 @@
 #!/usr/bin/env perl
 # программа настройки сетевых интерфейсов RMT
-
 use strict;
 use warnings;
 use Getopt::Std;
 use Data::Dumper;
-use NetSetup;
-use NetSetup::Array_diff;
-use NetSetup::Logger;
+use File::stat;
+
+# перегрузка exit
+BEGIN {
+	*CORE::GLOBAL::exit = sub {
+		clear_lock();
+		exit (shift || 0);
+	}
+}
+
+# подключение логгера
+eval {
+	require NetSetup::Logger;
+};
+if ($@) {
+	print $@;
+	sendmail($@);
+	exit 1;
+}
 
 ########################################################################
 # переменные
 ########################################################################
+# код завершения программы
 my $exit_code = 0;
+# код завершения внутренних функций
 my $ret;
+# LOCK файл
+my $lock_file = '/tmp/netsetup.lock';
+# максимальное время блокировки в секундах
+my $max_lock_time = 120;
 # режим выполнения команды
 my $mode;
 # уровень тишины
@@ -33,9 +54,14 @@ my $old_config;
 my $new_config;
 
 ########################################################################
+# обработка сигналов
+########################################################################
+$SIG{TERM} = $SIG{INT} = $SIG{QUIT} = $SIG{ABRT} = $SIG{HUP} = \&sig_handler;
+
+########################################################################
 # получение аргументов командной строки
 ########################################################################
-my $Usage =	"usage: $0 [-h] [-d 1|2|3] [-v] [-с] [-s]\n" .
+my $Usage =	"usage: $0 [-h] [-d 1|2|3] [-с] [-s]\n" .
 				"[update [all|template] | show [old|new|diff|] template]]\n" .
 				"\n" .
 				"decription:\n" .
@@ -46,7 +72,7 @@ my $Usage =	"usage: $0 [-h] [-d 1|2|3] [-v] [-с] [-s]\n" .
 				"\t-d\tdebug level [1-3]\n" .
 				"\t-w\twithout verfication\n" .
 				"\t-c\tconfig file for this program\n" .
-				"\t-s\tsilence mode\n" .
+				"\t-s\twithout verification\n" .
 				"";
 
 my %argv;
@@ -73,156 +99,161 @@ if (defined $argv{'s'}) {
 }
 
 # инициализация логгера
-my $logger = logger_init(STDERR => 1, LEVEL => $logger_level);
+my $logger = NetSetup::Logger::logger_init(STDERR => 1, LEVEL => $logger_level);
 
 ########################################################################
 # ОСНОВНАЯ ПРОГРАММА
 ########################################################################
 eval {
-# подключение библиотеки.
-# выполняется на этапе выполнения для правильной активации логгера
-use NetSetup;
-# проверка на чтение конфигурационного файла
-if (!-r $net_setup_config_file) {
-	$logger->fatal("can't open ${net_setup_config_file} for reading");
-	exit 1;
-}
-# инициализация NetSetup
-$net_setup = NetSetup->new($net_setup_config_file);
-########################################################################
-# получить старый конфиг
-########################################################################
-@old_config_files = $net_setup->find_in_tmp();
-$old_config = $net_setup->get_config_obj(@old_config_files);
-# старый конфиг является текущим
-$current_config = $old_config;
-# пуст ли старый конфиг? если да, вывести информацию об этом
-if ($old_config->is_empty()) {
-	$logger->info("an old config is empty");
-}
-########################################################################
-# получить новый конфиг
-########################################################################
-@new_config_files = $net_setup->find_newest_set();
-$new_config = $net_setup->get_config_obj(@new_config_files);
-# нового конфига не может не быть
-if (!$new_config) {
-	$logger->fatal("a new config hasn't been found");
-	exit 1;
-}
-if ($new_config->is_empty()) {
-	$logger->warn("a new config is empty");
-}
-########################################################################
-# сравнить конфиги
-########################################################################
-$new_config->compare_with_old($old_config);
-########################################################################
-# режим работы
-########################################################################
-$mode = shift;
-########################################################################
-# режим show
-########################################################################
-# режим show без аргументов показывает текущие настройки (старый конфиг),
-# а так же разницу с новым конфигом, если она есть
-# 
-# если передан аргумент diff - покажет разницу старого и нового конфигов
-# без вывода неизменных частей
-#
-# если передан шаблон, то произведен поиск по шаблону и выведет те
-# интерфейсы, в которых этот шаблон встречается
-if ($mode eq 'show') {
-	# аргументов нет. значит нужно вывести старый конфиг полностью + разницу
-	if (!@ARGV || $ARGV[0] eq 'old') {
-		$logger->debug("show old");
-		shift;
-		$logger->info($old_config->str(@ARGV));
-		$logger->info($new_config->get_diff(@ARGV));
-	}
-	# новый конфиг
-	elsif ($ARGV[0] eq 'new') {
-		$logger->debug("show new");
-		shift;
-		$logger->info($new_config->str(@ARGV));
-	}
-	# разница
-	elsif ($ARGV[0] eq 'diff') {
-		$logger->debug("show diff");
-		shift;
-		$logger->info($new_config->get_diff(@ARGV));
-	}
-	# если не совпадает, значит шаблон
-	else {
-		$logger->debug("show by template");
-		$logger->info($old_config->str(@ARGV));
-	}
-}
-########################################################################
-# режим update
-########################################################################
-# если пользователь не является root, программа завершится с ошибкой
-# осуществляется применение изменений в системе
-# если активирован режим без подтверждения (-w), то программа не будет
-# спрашивать подтверждения.
-elsif ($mode eq 'update') {
-	# настройки может применять только root
-	if (getpwuid($<) ne 'root') {
-		$logger->fatal('Only root can configure system');
+	# установить блокировку
+	if (!set_lock()) {
+		$logger->error("Found the active locking");
 		exit 1;
 	}
-	$logger->debug('update');
-	if (!$new_config->get_diff()) {
-		$logger->info("nothing to do");
-		exit 0;
+	# подключение библиотеки.
+	# если подкчлюить на этапе компиляции, выйдет с ошибкой, т.к. не инициализирован логгер
+	require NetSetup;
+	# проверка на чтение конфигурационного файла
+	if (!-r $net_setup_config_file) {
+		$logger->fatal("can't open ${net_setup_config_file} for reading");
+		exit 1;
 	}
-	$logger->info($new_config->get_diff() . "--------------------------------");
-	# запрос подтверждения от пользователя
-	# не производится, если включен, если включен silence
-	if (!$silence) {
-		print "are you shure? (y/n): ";
-		if (<STDIN> eq "y\n") {
-			$logger->debug("are you shure? (y/n): y");
+	# инициализация NetSetup
+	$net_setup = NetSetup->new($net_setup_config_file);
+	########################################################################
+	# получить старый конфиг
+	########################################################################
+	@old_config_files = $net_setup->find_in_tmp();
+	$old_config = $net_setup->get_config_obj(@old_config_files);
+	# старый конфиг является текущим
+	$current_config = $old_config;
+	# пуст ли старый конфиг? если да, вывести информацию об этом
+	if ($old_config->is_empty()) {
+		$logger->info("an old config is empty");
+	}
+	########################################################################
+	# получить новый конфиг
+	########################################################################
+	@new_config_files = $net_setup->find_newest_set();
+	$new_config = $net_setup->get_config_obj(@new_config_files);
+	# нового конфига не может не быть
+	if (!$new_config) {
+		$logger->fatal("a new config hasn't been found");
+		exit 1;
+	}
+	if ($new_config->is_empty()) {
+		$logger->warn("a new config is empty");
+	}
+	########################################################################
+	# сравнить конфиги
+	########################################################################
+	$new_config->compare_with_old($old_config);
+	########################################################################
+	# режим работы
+	########################################################################
+	$mode = shift;
+	########################################################################
+	# режим show
+	########################################################################
+	# режим show без аргументов показывает текущие настройки (старый конфиг),
+	# а так же разницу с новым конфигом, если она есть
+	# 
+	# если передан аргумент diff - покажет разницу старого и нового конфигов
+	# без вывода неизменных частей
+	#
+	# если передан шаблон, то произведен поиск по шаблону и выведет те
+	# интерфейсы, в которых этот шаблон встречается
+	if ($mode eq 'show') {
+		# аргументов нет. значит нужно вывести старый конфиг полностью + разницу
+		if (!@ARGV || $ARGV[0] eq 'old') {
+			$logger->debug("show old");
+			shift;
+			$logger->info($old_config->str(@ARGV)) if !$old_config->is_empty();
+			$logger->info($new_config->get_diff(@ARGV))if !$new_config->is_empty();
 		}
+		# новый конфиг
+		elsif ($ARGV[0] eq 'new') {
+			$logger->debug("show new");
+			shift;
+			$logger->info($new_config->str(@ARGV));
+		}
+		# разница
+		elsif ($ARGV[0] eq 'diff') {
+			$logger->debug("show diff");
+			shift;
+			$logger->info($new_config->get_diff(@ARGV));
+		}
+		# если не совпадает, значит шаблон
 		else {
-			$logger->debug("are you shure? (y/n): n");
+			$logger->debug("show by template");
+			$logger->info($old_config->str(@ARGV));
+		}
+	}
+	########################################################################
+	# режим update
+	########################################################################
+	# если пользователь не является root, программа завершится с ошибкой
+	# осуществляется применение изменений в системе
+	# если активирован режим без подтверждения (-w), то программа не будет
+	# спрашивать подтверждения.
+	elsif ($mode eq 'update') {
+		# настройки может применять только root
+		if (getpwuid($<) ne 'root') {
+			$logger->fatal('Only root can configure system');
+			exit 1;
+		}
+		$logger->debug('update');
+		if (!$new_config->get_diff()) {
+			$logger->info("nothing to do");
 			exit 0;
 		}
+		$logger->info($new_config->get_diff() . "--------------------------------");
+		# запрос подтверждения от пользователя
+		# не производится, если включен, если включен silence
+		if (!$silence) {
+			print "are you shure? (y/n): ";
+			if (<STDIN> eq "y\n") {
+				$logger->debug("are you shure? (y/n): y");
+			}
+			else {
+				$logger->debug("are you shure? (y/n): n");
+				exit 0;
+			}
+		}
+		else {
+			$logger->debug("continue without verification");
+		}
+		$ret = $new_config->apply_diff();
+		if (!$ret) {
+			$logger->fatal("something wrong at the configuring");
+			$exit_code = 1;
+		}
+		$ret = $net_setup->copy_to_tmp(@new_config_files);
+		if (!$ret) {
+			logger->fatal("something wrong at the file copying");
+			$exit_code = 1;
+		}
+		# т.к. новый конфиг применен, он стал текущим конфигом
+		$current_config = $new_config;
+	}
+	########################################################################
+	# ОПОВЕЩЕНИЯ
+	########################################################################
+	# проверка LAN-подсетей
+	# если в quagga внесены статические маршруты, которых нет в текущем конфиге,
+	# будет выведено предупреждение
+	$logger->debug("warning block");
+	$logger->debug("current config: ${current_config}");
+	$logger->debug(ref($current_config));
+	my @odd_lan = $net_setup->find_odd_lan($current_config);
+	if (defined($odd_lan[0]) && !$odd_lan[0]) {
+		$logger->fatal("An error occured at find_odd_lan");
 	}
 	else {
-		$logger->debug("continue without verification");
+		foreach (@odd_lan) {
+			$logger->warn("WARNING! An odd lan: $_");
+		}
 	}
-	$ret = $new_config->apply_diff();
-	if (!$ret) {
-		$logger->fatal("something wrong at the configuring");
-		$exit_code = 1;
-	}
-	$ret = $net_setup->copy_to_tmp(@new_config_files);
-	if (!$ret) {
-		logger->fatal("something wrong at the file copying");
-		$exit_code = 1;
-	}
-	# т.к. новый конфиг применен, он стал текущим конфигом
-	$current_config = $new_config;
-}
-########################################################################
-# ОПОВЕЩЕНИЯ
-########################################################################
-# проверка LAN-подсетей
-# если в quagga внесены статические маршруты, которых нет в текущем конфиге,
-# будет выведено предупреждение
-$logger->debug("warning block");
-$logger->debug("current config: ${current_config}");
-$logger->debug(ref($current_config));
-my @odd_lan = $net_setup->find_odd_lan($current_config);
-if (defined($odd_lan[0]) && !$odd_lan[0]) {
-	$logger->fatal("An error occured at find_odd_lan");
-}
-else {
-	foreach (@odd_lan) {
-		$logger->warn("WARNING! An odd lan: $_");
-	}
-}
 };
 ########################################################################
 # КОНЕЦ
@@ -230,9 +261,93 @@ else {
 # обработка исключений
 if ($@) {
 	$logger->fatal($@);
-	$exit_code = 1;
+	clear_lock();
+	exit 1;
 }
-
+clear_lock();
 exit $exit_code;
 
+########################################################################
+# Функции
+########################################################################
 
+# LOCK
+# установить блокировку
+sub set_lock {
+	my $fh;
+	# проверить, не был ли установлен LOCK ранее
+	# если был установлен, выкинуть carp и удалить файл
+	my $is_lock = check_lock();
+	# если файл блокировки обнаружен
+	if ($is_lock) {
+		# и работает давно, нужно убить процесс и удаить файл
+		if (time - stat($lock_file)->mtime > $max_lock_time) {
+			# работает ли еще процесс?
+			`ps $is_lock`;
+			if (!$?) {
+				`/bin/kill -9 $is_lock`;
+				if ($?) {
+					die "can't kill an old process (${is_lock})";
+				}
+				else {
+					warn "an old process (${is_lock}) has been killed";
+				}
+			}
+			# очистить блокировку
+			clear_lock();
+		}
+		# если блокировка установлена и не истекло время ожидания
+		# вернуть 0
+		else {
+			return 0;
+		}
+		
+	}
+	# установить файл блокировки
+	if (!open $fh, ">", $lock_file) {
+		die $!;
+	}
+	# записать в него pid текущего процесса
+	print $fh getppid();
+	close $fh;
+	return 1;
+}
+
+# проверить, есть ли блокировка. если есть, вернет время, записанное в файле блокировки
+sub check_lock {
+	my $fh;
+	my $ret = 0;
+	if(-r $lock_file) {
+		if (!open $fh, "<", $lock_file) {
+			die $!;
+		}
+		$ret = <$fh>;
+	}
+	return $ret;
+}
+
+# удаление файла блокировки
+sub clear_lock {
+	if (-r $lock_file) {
+		unlink($lock_file) or die "can't delete ${lock_file}";
+	}
+	return 1;
+}
+
+# Обработка сигналов
+sub exit_cp {
+}
+
+# Отправка сообщений
+sub sendmail {
+	my $msg = shift;
+	print "imitaion sending mail:\n$msg";
+	#~ my $hostname = `/bin/hostname`;
+	#~ my $hostmaster = 'root';
+	#~ if (!open(MSG, "| /usr/bin/mail -s 'netsetup: ${hostname}' '${hostmaster}'")) {
+		#~ exit 1;
+	#~ }
+	#~ print MSG $msg;
+	#~ close(MSG);
+	#~ return 1;
+}

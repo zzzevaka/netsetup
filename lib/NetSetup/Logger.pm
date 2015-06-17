@@ -19,11 +19,14 @@ BEGIN {
 	our @EXPORT = qw (
 			&logger_init
 			&get_logger_obj
+			&get_log_file
 	);
 }
 
 # переменная, содержащая объект логгера Log::Log4perl::Logger
 my $logger_obj = undef;
+# файл в котором сохраняются логи
+my $log_file = undef;
 
 # анонс еще двух уровней дебага
 Log::Log4perl::Logger::create_custom_level("DEBUG2", "DEBUG");
@@ -64,7 +67,7 @@ sub logger_init {
 	# может быть переопределена аргуметом log_dir_tree
 	my $log_dir_tree = "${program_name}/${date}/${hour}/${program_name}.${mtime}.log";
 	# резервный файл для логирования
-	my $reserve_log_file = "/tmp/${program_name}.{mtime}.log";
+	my $reserve_log_file = "/tmp/${program_name}.${mtime}.log";
 	######################################################
 	# начало
 	######################################################
@@ -83,9 +86,9 @@ sub logger_init {
 	# определение log_dir_tree
 	$log_dir_tree = $arg{'LOG_DIR_TREE'} || $log_dir_tree;
 	# адрес файла для логирования
-	my $log_file = __get_logfile($log_dir_base . "/" . $log_dir_tree);
+	$log_file = __create_dir_tree($log_dir_base . "/" . $log_dir_tree);
 	# если получить адрес файла не удалось, логирование будет вестись в резервный файл
-	if (!$log_file) {
+	if (!defined($log_file) || !$log_file) {
 		warn("WARNING: Logging to ${reserve_log_file}");
 		$log_file = $reserve_log_file;
 	}
@@ -122,10 +125,6 @@ sub logger_init {
 	return $logger_obj;
 }
 
-# получить объект логгера
-sub get_logger_obj {
-	return $logger_obj;
-}
 
 # функция создает дерево каталогов согласно переданному пути к файлу
 # Вход:
@@ -133,7 +132,7 @@ sub get_logger_obj {
 # Выход:
 #	путь к файлу
 # 	0: ошибка
-sub __get_logfile {
+sub __create_dir_tree {
 	my $file_path = shift;
 	if (!defined($file_path) || !$file_path) {
 		warn("WARNING: incorrect path of file: ${file_path}");
@@ -143,17 +142,28 @@ sub __get_logfile {
 	$file_path =~ s/\/\//\//;
 	# получить дерево папок без имени файла
 	my $full_dir_path = dirname($file_path);
-	# получить дерево каталогов, начиная с корня
-	# создать дерево папок
-	my $stdout = `mkdir -p $full_dir_path 2>&1`;
-	# если дерево папок создать не удалось, вернуть ошибку
-	if ($?) {
-		warn("WARNING: ${stdout}");
-		return 0;
+	if (!-d $full_dir_path) {
+		# создать дерево папок
+		my $stdout = `mkdir -p $full_dir_path 2>&1`;
+		`chmod 777 $full_dir_path`;
+		# если дерево папок создать не удалось, вернуть ошибку
+		if ($?) {
+			warn("WARNING: ${stdout}");
+			return 0;
+		}
 	}
 	# если удалось создать дерево папок, вернуть полный адрес файла
 	return $file_path;
 }
 
+# получить адрес файла логирования
+sub get_log_file {
+	return $log_file;
+}
+
+# получить объект логгера
+sub get_logger_obj {
+	return $logger_obj;
+}
 
 1;

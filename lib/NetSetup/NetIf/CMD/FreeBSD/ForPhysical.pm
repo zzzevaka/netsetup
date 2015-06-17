@@ -11,12 +11,14 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	use NetSetup::Logger;
 	use NetSetup::CMD::CMD_Base;
 
-	my $logger;
+	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+	my $logger = get_logger_obj() or die "logger isn't initialized";
 
 	# внешние команды
 	my $IFCONFIG = '/sbin/ifconfig';
-	my $VTYSH = "vtysh";
-	my $ROUTE = "/sbin/route";
+	my $VTYSH = 'vtysh';
+	my $ROUTE = '/sbin/route';
+	my $IPACC = 'ipacc';
 	
 	# Конструктор класса
 	# Синтаксис:
@@ -29,7 +31,6 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	sub new {
 		my $class = shift;
 		my %arg = @_;
-		$logger = logger_init();
 		$logger->debug("called ${class} construcor");
 		if (!defined($arg{'NAME'})) {
 			$logger->error("An incorrect argument");
@@ -82,12 +83,17 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	sub up_iface {
 		my $self = shift;
 		# поднимаем интерфейс
-		my @cmd_output = exec_template {"$IFCONFIG $_ up"} $self->{'NAME'};
+		my @cmd_output = exec_cmd("${IFCONFIG} " . $self->{'NAME'} . " up");
 		# если не поднялся, выйти с ошибкой
 		if (!$cmd_output[0]) {
 			$logger->error("coldn't create ". $self->{'NAME'} ." :\n@cmd_output");
 			return 0;
 		}
+		# включаем ipacc
+		@cmd_output = exec_cmd("${IPACC} output on int " . $self->{'NAME'});
+		if (!shift @cmd_output) {
+			$logger->error("coldn't create ". $self->{'NAME'} ." :\n@cmd_output");
+		}		
 		# поднимаем ресурсы, если они были объявлены
 		$self->up_connected($self->{'CONNECTED'}) if @{$self->{'CONNECTED'}};
 		$self->up_lan($self->{'LAN'}) if @{$self->{'LAN'}};
@@ -102,14 +108,13 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	#	$class_obj->down_iface();
 	# Вход:
 	# Выход:
-	#	1: норма
-	#	0: ошибка
+	#	см. NetSetup::CMD::exec_cmd
 	sub down_iface {
 		my $self = shift;
 		down_connected($self->{'CONNECTED'}) if @{$self->{'CONNECTED'}};
 		down_lan($self->{'LAN'}) if @{$self->{'LAN'}};
 		down_group($self->{'GROUP'}) if @{$self->{'GROUP'}};
-		return scalar exec_template {"$IFCONFIG " . $self->{'NAME'} . " down"}
+		return exec_template {"$IFCONFIG " . $self->{'NAME'} . " down"}
 	}
 	
 	# поднят ли интерфейс?

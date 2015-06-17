@@ -8,7 +8,8 @@ package NetSetup::ConfigFile::Compiler; {
 	use Data::Dumper;
 	use NetSetup::Logger;
 
-	my $logger;
+	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+	my $logger = get_logger_obj() or die "logger isn't initialized";
 
 	# конструктор класса
 	# ВХОД:
@@ -21,8 +22,6 @@ package NetSetup::ConfigFile::Compiler; {
 		my $class = shift;
 		my $self = {};
 		my %arg = @_;
-		# инициализация логгера
-		$logger = logger_init();
 		# шаблоны строк по-умолчанию
 		$self->{'LINE_TEMPLATES'} = {
 			SWITCH		=> "SW dev DEVICE_NAME parent PARENT base BASE_VLAN inet CONNECTED count PORT_COUNT( ignore IGNORE)?",

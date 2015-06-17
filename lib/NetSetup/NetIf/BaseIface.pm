@@ -15,8 +15,8 @@ package NetSetup::NetIf::BaseIface; {
 		'""' => \&str,
 	};
 	
-	# объект логгера
-	my $logger;
+	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+	my $logger = get_logger_obj() or die "logger isn't initialized";
 	
 	# Конструктор
 	# Принимает именованные параметры
@@ -27,8 +27,6 @@ package NetSetup::NetIf::BaseIface; {
 	# GROUP		=> группы
 	sub new {
 		my $class = shift;
-		# инициализация логгера
-		$logger = logger_init();
 		my %arg = @_;
 		#~ $logger->debug("called ${class} construcor");
 		# для каждого объекта класса обязательно должно быть определено имя

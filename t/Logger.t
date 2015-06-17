@@ -1,7 +1,7 @@
 #!?usr/bin/perl
 # Тесты для пакета Looger
 
-use lib ($ENV{'HOME'} . '/Dropbox/Autoadmin1/lib');
+use lib ($ENV{'HOME'} . '/Dropbox/netsetup/lib');
 use strict;
 use warnings;
 use Test::More;
@@ -10,7 +10,7 @@ use Data::Dumper;
 use Test::More qw(no_plan);
 
 # подключение модуля
-use_ok('Logger');
+use_ok('NetSetup::Logger');
 # инициализация логгера
 mkdir('/tmp/log');
 

@@ -8,7 +8,8 @@ package NetSetup::NetIf::Vlan; {
 	use Data::Dumper;
 	use NetSetup::Logger;
 
-	my $logger;
+	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+	my $logger = get_logger_obj() or die "logger isn't initialized";
 
 	# наследование базового класса и интерфейса взаимодействия с системой
 	use base qw/NetSetup::NetIf::BaseIface
@@ -18,8 +19,6 @@ package NetSetup::NetIf::Vlan; {
 	sub new {
 		my $class = shift;
 		my %arg = @_;
-		# инициализация логгера
-		$logger = logger_init();
 		# для vlana обязательно наличие perent-интерфейса и тэга vlan'a
 		if (!defined($arg{'VLAN_TAG'}) || $arg{'VLAN_TAG'} !~ m/\d+/) {
 			$logger->error("incorrect vlan tag value");
@@ -29,7 +28,7 @@ package NetSetup::NetIf::Vlan; {
 			$logger->error("incorrect parent");
 		}
 		# вызов конструктора базовго класса
-		my $self = $class->NetSetup::NetIf::Base::new(@_);
+		my $self = $class->NetSetup::NetIf::BaseIface::new(@_);
 		$self->{'PARENT'} = $arg{'PARENT'};
 		$self->{'VLAN_TAG'} = $arg{'VLAN_TAG'};
 

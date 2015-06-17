@@ -17,7 +17,8 @@ BEGIN {
 	);
 }
 
-my $logger;
+# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+my $logger = get_logger_obj() or die "logger isn't initialized";
 
 # Выполнение команды
 # Вход:
@@ -27,7 +28,7 @@ my $logger;
 #   0 : если код заврешения команды != 0
 sub exec_cmd {
 	my $cmd = shift;
-	$logger = logger_init();
+
 	$logger->debug3($cmd);
 	my $return_code = 1;
 	if (!defined($cmd) || !$cmd) {
@@ -38,7 +39,7 @@ sub exec_cmd {
 	$logger->debug3($cmd);
 	my $stdout = `$cmd`;
 	if ($?) {
-		$logger->debug("command '${cmd} (" . $? /256 . ")\n${stdout}' has returned '" . $? / 256 . "'" );
+		$logger->debug("a command '${cmd} has returned '" . $?/256 . ";:\n${stdout}");
 		$return_code = 0;
 	}
 	else {

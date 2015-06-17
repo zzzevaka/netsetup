@@ -17,7 +17,7 @@ package NetSetup; {
 	use NetSetup::CMD::Vtysh;
 	
 	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
-	my $logger;
+	my $logger = get_logger_obj() or die "logger isn't initialized";
 	
 	# конструктор класса
 	# Вход:
@@ -31,8 +31,6 @@ package NetSetup; {
 		my $class = shift;
 		# источник конфига. может быть хэш или адрес файла
 		my $config_source = shift;
-		# инициализация логгера
-		$logger = logger_init();
 		# переменная, куда будет записано содержимое конфиг файла
 		my %config = ();
 		# если источник конфига был объявлен

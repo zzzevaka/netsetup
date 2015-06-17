@@ -9,7 +9,8 @@ package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 	#наследование класса
 	use base qw/NetSetup::NetIf::CMD::FreeBSD::ForPhysical/;
 	
-	my $logger;
+	# получиение объекта логгера. Если он не был инициализирован ранее, выкинуть ошибку
+	my $logger = get_logger_obj() or die "logger isn't initialized";
 	
 	# внешние команды
 	my $IFCONFIG = '/sbin/ifconfig';
@@ -26,8 +27,6 @@ package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 	sub new {
 		my $class = shift;
 		my %arg = @_;
-		# наследование класса
-		$logger = logger_init();
 		$logger->debug("called ${class} construcor");
 		if (!defined($arg{'VLAN_TAG'}) || !defined($arg{'PARENT'}) ||
 			!$arg{'VLAN_TAG'} || !$arg{'PARENT'}) {
@@ -54,7 +53,9 @@ package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 		my $self = shift;
 		$logger->debug2("up " . $self->get_name());
 		# создаем интерфейс
-		if (!exec_cmd ("${IFCONFIG} " . $self->{'NAME'} . " create vlan " . $self->{"VLAN_TAG"} . " vlandev " . $self->{"PARENT"})) {
+		my @cmd_output = exec_cmd ("${IFCONFIG} " . $self->{'NAME'} . " create vlan " . $self->{"VLAN_TAG"} . " vlandev " . $self->{"PARENT"});
+		if (!shift @cmd_output) {
+			$logger->error("ERROR at the configuring " . $self->{'NAME'} . ":\n@{cmd_output}" );
 			return 0;
 		}
 		# поднимаем ресурсы, если они были объявлены
@@ -71,12 +72,11 @@ package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 	#	$class_obj->down_iface();
 	# Вход:
 	# Выход:
-	#	1: норма
-	#	0: ошибка
+	# 	см. NetSetup::CMD::exec_cmd
 	sub down_iface {
 		my $self = shift;
 		$self->down_lan($self->{'LAN'}) if @{$self->{'LAN'}};
-		return scalar exec_cmd("${IFCONFIG} " . $self->{'NAME'} . " destroy")
+		return exec_cmd("${IFCONFIG} " . $self->{'NAME'} . " destroy")
 	}
 }
 
