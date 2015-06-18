@@ -3,7 +3,7 @@
 
 ---------------------------------------------------------------------------------
 <b>ИСПОЛЬЗОВАНИЕ:</b>
-$0 [-h] [-d <1|2|3>] [-с] [-s]\n [update | show <old|new|diff> template]
+$0 [-h] [-d <1|2|3>] [-с] [-s] [update | show <old|new|diff> template]
 
 -h	this page<br>
 -d	debug leve<br>
