@@ -6,7 +6,7 @@
 	netsetup [-h] [-d <1|2|3>] [-с] [-s] [update | show <old|new|diff> template]
 	
 	-h	this page
-	-d	debug leve
+	-d	debug level
 	-s	without verification
 	-c	config file of the program
 
