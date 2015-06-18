@@ -6,8 +6,11 @@
 $0 [-h] [-d <1|2|3>] [-с] [-s]\n [update | show <old|new|diff> template]
 
 -h	this page
+
 -d	debug leve
+
 -s	without verification
+
 -c	config file of the program
 
 ---------------------------------------------------------------------------------
