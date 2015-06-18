@@ -9,7 +9,7 @@ use File::stat;
 # перегрузка exit
 BEGIN {
 	*CORE::GLOBAL::exit = sub {
-		clear_lock();
+		clear_lock() if defined &clear_lock;
 		exit (shift || 0);
 	}
 }
