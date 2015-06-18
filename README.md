@@ -3,12 +3,12 @@
 
 ---------------------------------------------------------------------------------
 ## Использование
-netsetup [-h] [-d <1|2|3>] [-с] [-s] [update | show <old|new|diff> template]
-
--h	this page<br>
--d	debug leve<br>
--s	without verification<br>
--c	config file of the program<br>
+	netsetup [-h] [-d <1|2|3>] [-с] [-s] [update | show <old|new|diff> template]
+	
+	-h	this page
+	-d	debug leve
+	-s	without verification
+	-c	config file of the program
 
 ---------------------------------------------------------------------------------
 ## Конфигурация программы
@@ -43,7 +43,7 @@ SW_GROUP - список групп, в которые будут добавле�
         
         Пример:
         
-        SW TEST-SW parent rm0 base 100 inet 192.168.1.1/30 count 8 ignore 1,2<br>
+        SW TEST-SW parent rm0 base 100 inet 192.168.1.1/30 count 8 ignore 1,2
         SW TEST-SW parent rm0 base 100 inet 192.168.1.1/30 count 8
 
 2. Описание связи точки подключения с access-портом.
@@ -52,7 +52,7 @@ SW_GROUP - список групп, в которые будут добавле�
         
         Пример:
         
-        AP_LINK IVANOV-II dev TEST-SW port 3<br>
+        AP_LINK IVANOV-II dev TEST-SW port 3
         AP_LINK SYDOROV-SS dev ROUTER port re0
 
 
@@ -67,8 +67,8 @@ SW_GROUP - список групп, в которые будут добавле�
         
         Пример:
         
-        RES IVANOV-II group Group1 inet 192.168.0.1/30 lan 10.0.0.0/24-192.168.0.2<br>
-        RES IVANOV-II group Cgroup2<br>
+        RES IVANOV-II group Group1 inet 192.168.0.1/30 lan 10.0.0.0/24-192.168.0.2
+        RES IVANOV-II group Cgroup2
         RES SYDOROV-SS inet 192.1680.0.4/30
 
 
