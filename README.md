@@ -5,13 +5,10 @@
 <b>ИСПОЛЬЗОВАНИЕ:</b>
 $0 [-h] [-d <1|2|3>] [-с] [-s]\n [update | show <old|new|diff> template]
 
--h	this page
-
--d	debug leve
-
--s	without verification
-
--c	config file of the program
+-h	this page<br>
+-d	debug leve<br>
+-s	without verification<br>
+-c	config file of the program<br>
 
 ---------------------------------------------------------------------------------
 <b>КОФНИГУРАЦИОННЫЙ ФАЙЛ ПРОГРАММЫ:</b>
