@@ -3,6 +3,9 @@
 # класс, описывающий vlan. Наследуется от NetworkInterface
 package NetSetup::NetIf::Vlan; {
 
+	use FindBin;
+	use lib "$FindBIN::RealBin/../lib";
+
 	use strict;
 	use warnings;
 	use Data::Dumper;

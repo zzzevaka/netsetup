@@ -4,6 +4,9 @@
 # Класс физического сетевого интерфейса
 package NetSetup::NetIf::BaseIface; {
 
+	use FindBin;
+	use lib "$FindBIN::RealBin/../lib";
+
 	use strict;
 	use warnings;
 	use Switch;
@@ -160,7 +163,7 @@ package NetSetup::NetIf::BaseIface; {
 		my $self = shift;
 		my $added_str = shift;
 		my $string = '';
-		$string .= "NETIF " . $self->{'TITLE'} . ' (' .  $self->{'NAME'} . "):\n";
+		$string .= $self->{'NAME'} . ' ' . $self->{'TITLE'} . ":\n";
 		foreach my $res (@{$self->{'RES_SET'}}) {
 			my @res_array = @{$self->{$res}};
 			next if !@res_array;

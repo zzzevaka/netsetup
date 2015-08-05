@@ -2,6 +2,9 @@
 
 package NetSetup::NetIf::CMD::FreeBSD::ForVlan; {
 
+	use FindBin;
+	use lib "$FindBin::RealBin/../lib";
+
 	use strict;
 	use warnings;
 	use NetSetup::Logger;

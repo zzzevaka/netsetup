@@ -2,7 +2,10 @@
 # Библиотека, предоставляющая интерфейс управления конфигурационными файлами
 
 package NetSetup; {
-
+	
+	use FindBin;
+	use lib "$FindBIN::RealBin/../lib";
+	
 	use strict;
 	use warnings;
 	use Data::Dumper;
@@ -50,7 +53,7 @@ package NetSetup; {
 				close $FH;
 			}
 			else {
-				$logger->warn("config_source is invalid");
+				$logger->error("config_source is invalid");
 				return 0;
 			}
 		}
@@ -150,7 +153,7 @@ package NetSetup; {
 		foreach (@{$self->{'FILES'}}) {
 			my $file = $self->find_newest_file_by_name($_);
 			if (defined($file)) {
-				push @newest_set, $file
+				push @newest_set, $file;
 			}
 		}
 		$logger->debug("the newest set: @newest_set");

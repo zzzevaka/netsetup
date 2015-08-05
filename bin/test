@@ -1,0 +1,24 @@
+#!/usr/bin/env perl
+# программа настройки сетевых интерфейсов RMT
+use FindBin;
+use lib "$FindBin::RealBin/../lib";
+
+use strict;
+use warnings;
+use Getopt::Std;
+use Data::Dumper;
+
+
+my @array = qw/vlan1410 vlan1400 vlan1401 vlan1402 vlan1416 vlan1403 vlan1404 vlan1405 vlan1406 em0 em1 re0/;
+
+
+my @sorted = sort {
+	my $a_vl_n = $a =~ m/vlan(\d+)/ ? $1 : 0;
+	my $b_vl_n = $b =~ m/vlan(\d+)/ ? $1 : 0;
+	if ($a_vl_n && $b_vl_n) {$a_vl_n < $b_vl_n ? -1 : 1}
+	elsif ($a_vl_n) {1}
+	elsif ($b_vl_n) {-1}
+	else {$a cmp $b}
+} @array;
+
+print "$_\n" for @sorted;

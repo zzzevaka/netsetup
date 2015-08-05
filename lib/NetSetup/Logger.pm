@@ -65,7 +65,7 @@ sub logger_init {
 	my $log_dir_base = "/tmp/log/";
 	# описание дерева, согласно, которому будут создаваться папки и файлы в базовой папке
 	# может быть переопределена аргуметом log_dir_tree
-	my $log_dir_tree = "${program_name}/${date}/${hour}/${program_name}.${mtime}.log";
+	my $log_dir_tree = "${date}/${hour}/${program_name}.${mtime}.log";
 	# резервный файл для логирования
 	my $reserve_log_file = "/tmp/${program_name}.${mtime}.log";
 	######################################################
@@ -114,9 +114,11 @@ sub logger_init {
 		log4perl.appender.STDERR.layout.ConversionPattern = $screen_format
 	";
 	# инициализация Log4perl
-	if(!Log::Log4perl->init(\$log_conf)) {
-		return 0;
-	}
+	eval {
+		if(!Log::Log4perl->init(\$log_conf)) {
+			return 0;
+		}
+	};
 	# получение объекта логгера
 	$logger_obj = get_logger();
 	if (!defined($logger_obj) || !$logger_obj) {
@@ -145,11 +147,13 @@ sub __create_dir_tree {
 	if (!-d $full_dir_path) {
 		# создать дерево папок
 		my $stdout = `mkdir -p $full_dir_path 2>&1`;
-		`chmod 777 $full_dir_path`;
 		# если дерево папок создать не удалось, вернуть ошибку
 		if ($?) {
 			warn("WARNING: ${stdout}");
 			return 0;
+		}
+		else {
+			chmod 777, $full_dir_path;
 		}
 	}
 	# если удалось создать дерево папок, вернуть полный адрес файла

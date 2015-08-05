@@ -4,6 +4,9 @@
 # Класс физического сетевого интерфейса
 package NetSetup::NetIf::Physical; {
 
+	use FindBin;
+	use lib "$FindBIN::RealBin/../lib";
+
 	use strict;
 	use warnings;
 

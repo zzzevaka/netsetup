@@ -4,6 +4,9 @@
 
 package NetSetup::ConfigFile; {
 
+	use FindBin;
+	use lib "$FindBIN::RealBin/../lib";
+
 	use strict;
 	use warnings;
 	use Data::Dumper;
@@ -75,7 +78,7 @@ package NetSetup::ConfigFile; {
 				my $line_data = $self->{'COMPILER'}->compile_line($_);
 				# если возвращен 0, перейти к следующей строке
 				if (!$line_data) {
-					$logger->debug2('ignore line');
+					$logger->debug2('There is no data in the line');
 					next;
 				}
 				# если строка совпала с несколькими типами данных, ее нельзя интерпретировать однозначно.
@@ -356,12 +359,29 @@ package NetSetup::ConfigFile; {
 		my $template = join '|', @templates;
 		$logger->debug3("template ${template}");
 		my $str = '';
+		# сортировка по названию интерфесов
+		my @sorted_netif = sort {
+			# получить имена интерфейсов
+			my $a_name = $self->{'IMAGE'}{$a}->get_name();
+			my $b_name = $self->{'IMAGE'}{$b}->get_name();
+			# получить номера vlan
+			my $a_vl_n = $a_name =~ m/vlan(\d+)/ ? $1 : 0;
+			my $b_vl_n = $b_name =~ m/vlan(\d+)/ ? $1 : 0;
+			# если оба номера vlan !0 сравнить их
+			if ($a_vl_n && $b_vl_n) {$a_vl_n < $b_vl_n ? -1 : 1}
+			# если $b не vlanь, идет вперед
+			elsif (!$a_vl_n) {-1}
+			# если $b не vlan, идет вперед
+			elsif ($b_vl_n) {1}
+			# если оба не vlan'ы, сравниваем их как строки
+			else {$a_name cmp $b_name}
+		} keys %{$self->{'IMAGE'}};
 		# каждый интерфейс в отсортированном виде
-		foreach (sort keys %{$self->{'IMAGE'}}) {
+		foreach (@sorted_netif) {
 			$logger->debug3("netif $_");
 
 			if ($self->{'IMAGE'}{$_}->str() =~ m/$template/mi) {
-				$str .= "--------------------------------\n";
+				$str .= "--------------------\n";
 				$str .= $self->{'IMAGE'}{$_}->str();
 			}
 		}

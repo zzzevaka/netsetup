@@ -3,6 +3,9 @@
 
 package NetSetup::ConfigFile::Compiler; {
 
+	use FindBin;
+	use lib "$FindBIN::RealBin/../lib";
+
 	use strict;
 	use warnings;
 	use Data::Dumper;

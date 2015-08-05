@@ -1,5 +1,8 @@
 #!/usr/bin/env perl
 # программа настройки сетевых интерфейсов RMT
+use FindBin;
+use lib "$FindBin::RealBin/../lib";
+
 use strict;
 use warnings;
 use Getopt::Std;
@@ -42,7 +45,7 @@ my $silence = 0;
 # уровень логгера Log::Log4Perl
 my $logger_level = 'INFO';
 # уонфигурационный файл программы. может быть перегружен (см. usage)
-my $net_setup_config_file = "/etc/netsetup.conf";
+my $net_setup_config_file = "$FindBin::RealBin/../etc/netsetup.conf";
 # объект класса NetSetup
 my $net_setup;
 # массивы, для хранения путей к конфигуарционным файлам
@@ -97,9 +100,19 @@ if(defined $argv{'c'} && $argv{'c'}) {
 if (defined $argv{'s'}) {
 	$silence = 1;
 }
-
 # инициализация логгера
-my $logger = NetSetup::Logger::logger_init(STDERR => 1, LEVEL => $logger_level);
+my $logger;
+eval {
+	$logger = NetSetup::Logger::logger_init(STDERR => 1,
+												LEVEL => $logger_level,
+												LEVEL => $logger_level,
+												LOG_DIR_BASE => '/var/log/netsetup/',
+												);
+};
+if ($@) {
+	warn ($@);
+	exit 1;
+}
 
 ########################################################################
 # ОСНОВНАЯ ПРОГРАММА
