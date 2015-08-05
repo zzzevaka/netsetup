@@ -90,8 +90,8 @@ package NetSetup::ConfigFile::Compiler; {
 		my $line = shift;
 		my $expected_type = shift;
 		my %match = ();
-		# если строка пуста или является комментарием - вернуть undef
-		if (!defined ($line) || !$line || $line =~ m/^#.*/) {
+		# если строка пуста, содрежит только пробелы или является комментарием - вернуть undef
+		if (!defined ($line) || $line =~ m/^ *$/ || $line =~ m/^#.*/) {
 			$logger->debug3("empty or a comment");
 			return 0;
 		}

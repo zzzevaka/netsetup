@@ -163,7 +163,7 @@ package NetSetup::NetIf::BaseIface; {
 		my $self = shift;
 		my $added_str = shift;
 		my $string = '';
-		$string .= $self->{'NAME'} . ' ' . $self->{'TITLE'} . ":\n";
+		$string .= $self->{'TITLE'} . " (". $self->{'NAME'}."):\n";
 		foreach my $res (@{$self->{'RES_SET'}}) {
 			my @res_array = @{$self->{$res}};
 			next if !@res_array;

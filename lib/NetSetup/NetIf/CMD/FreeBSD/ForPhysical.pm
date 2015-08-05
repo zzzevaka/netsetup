@@ -114,10 +114,11 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	#	см. NetSetup::CMD::exec_cmd
 	sub down_iface {
 		my $self = shift;
-		down_connected($self->{'CONNECTED'}) if @{$self->{'CONNECTED'}};
-		down_lan($self->{'LAN'}) if @{$self->{'LAN'}};
-		down_group($self->{'GROUP'}) if @{$self->{'GROUP'}};
-		return exec_template {"$IFCONFIG " . $self->{'NAME'} . " down"}
+		$self->down_connected($self->{'CONNECTED'}) if @{$self->{'CONNECTED'}};
+		$self->down_lan($self->{'LAN'}) if @{$self->{'LAN'}};
+		$self->down_group($self->{'GROUP'}) if @{$self->{'GROUP'}};
+		# Нужно ли выполнять down. Вдруг есть ручная секция?
+		#~ return exec_template {"$IFCONFIG " . $self->{'NAME'} . " down"}
 	}
 	
 	# поднят ли интерфейс?
@@ -137,7 +138,6 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	#	см. выход exec_template
 	sub up_connected {
 		my $self = shift;
-		$self->route_delete(@_);
 		return exec_template {"${IFCONFIG} " . $self->{'NAME'} . " inet $_ alias"} @_;
 	}
 	sub up_lan {
@@ -150,6 +150,7 @@ package NetSetup::NetIf::CMD::FreeBSD::ForPhysical; {
 	}
 	sub down_connected {
 		my $self = shift;
+		$logger->debug3(@_);
 		return exec_template {"${IFCONFIG} " . $self->{'NAME'} . " -alias " . (split /\//)[0]} @_;
 	}
 	sub down_lan {

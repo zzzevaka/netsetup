@@ -40,7 +40,7 @@ package NetSetup::NetIf::Vlan; {
 	# перегрузка метода базового класса
 	sub str {
 		my $self = shift;
-		my $spec =	"PARENT: " . $self->{'PARENT'} . "\n" .
+		my $spec =	"PARENT: " . $self->{'PARENT'} . " " .
 				"VLAN TAG: " . $self->{'VLAN_TAG'} . "\n";
 		my $string = $self->SUPER::str($spec);
 		return $string;

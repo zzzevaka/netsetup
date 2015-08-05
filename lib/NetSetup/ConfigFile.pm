@@ -179,11 +179,14 @@ package NetSetup::ConfigFile; {
 			$logger->debug3("compile resources for ${ap_name}");
 			#если device - ROUTER, создать физический интерфейс
 			if ($device_port =~ m/^ROUTER#(\w*)/i) {
-				$self->{'IMAGE'}{'ROUTER#'.$1} = NetSetup::NetIf::Physical->new(
-					TITLE		=> 'ROTUER#'.$1,
-					DESCRIBE	=> $ap_name,
-					NAME		=> $1,
-				);
+				# если интерфейс еще не создан, создать его.
+				# интерфейс может быть создан, если нессколько AP подключены в него
+				if (!defined($self->{'IMAGE'}{'ROUTER#'.$1})) {
+					$self->{'IMAGE'}{'ROUTER#'.$1} = NetSetup::NetIf::Physical->new(
+						TITLE		=> 'ROTUER#'.$1,
+						NAME		=> $1,
+					);
+				}
 			}
 			# если клиент подключен в свич, то vlan уже должен быть создан
 			# иначе игнорировать эту AP
@@ -192,6 +195,7 @@ package NetSetup::ConfigFile; {
 				next;
 			}
 			# добавить описание к интерфейсу
+			$logger->debug3("!!!!$ap_name");
 			$self->{'IMAGE'}{$device_port}->add_describe($ap_name);
 			# если AP_LINK описан, а RESOURCES нет, выдать предупреждение и пропустить эту AP
 			if (!defined($resources{$ap_name})) {
